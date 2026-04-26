@@ -133,6 +133,46 @@ def is_compound_folder(path: str) -> bool:
             return True
     return False
 
+
+def categorize_compound(folder_path: str, md_files: list) -> str:
+    """Categorize a compound based on keywords in its evaluation report."""
+    # Default category
+    category = "Other Compounds"
+
+    # If no markdown files, return default
+    if not md_files:
+        return category
+
+    # Read first few hundred characters of the evaluation report
+    try:
+        with open(sorted(md_files)[0], "r", encoding="utf-8") as fh:
+            content = fh.read(2000).lower()
+
+        # Check for drug class keywords
+        if any(kw in content for kw in ["antibiotic", "aminoglycoside", "antimicrobial"]):
+            category = "Antibiotics"
+        elif any(kw in content for kw in ["antiviral", "hiv", "protease inhibitor", "antiretroviral"]):
+            category = "Antivirals"
+        elif any(kw in content for kw in ["opioid", "analgesic", "anesthesia", "alfentanil", "sufentanil", "fentanil"]):
+            category = "Anesthetics & Analgesics"
+        elif any(kw in content for kw in ["benzodiazepine", "anxiolytic", "sedative", "midazolam", "alprazolam", "triazolam"]):
+            category = "Sedatives & Anxiolytics"
+        elif any(kw in content for kw in ["anticonvulsant", "antiepileptic", "carbamazepine", "epilepsy"]):
+            category = "Anticonvulsants"
+        elif any(kw in content for kw in ["cardiovascular", "antiarrhythmic", "cardiac", "digoxin", "mexiletine", "felodipine", "verapamil"]):
+            category = "Cardiovascular Agents"
+        elif any(kw in content for kw in ["antifungal", "azole", "itraconazole", "fluconazole"]):
+            category = "Antifungals"
+        elif any(kw in content for kw in ["antibody", "monoclonal", "immunoglobulin", "mab"]):
+            category = "Antibodies & Biologics"
+        elif "pediatric" in content or "neonates" in content or "children" in content:
+            category = "Pediatric Models"
+
+    except Exception:
+        pass
+
+    return category
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Per-compound processing
 # ──────────────────────────────────────────────────────────────────────────────
@@ -140,7 +180,7 @@ def is_compound_folder(path: str) -> bool:
 def process_folder(folder_path: str, folder_name: str) -> dict:
     """Copy and process one compound folder into docs/.
 
-    Returns a dict with keys: name, pdf_files, pksim_files.
+    Returns a dict with keys: name, pdf_files, pksim_files, category.
     """
     dest = os.path.join(DOCS_DIR, folder_name)
     os.makedirs(dest, exist_ok=True)
@@ -162,6 +202,9 @@ def process_folder(folder_path: str, folder_name: str) -> dict:
     # Just collect their basenames
     pdf_basenames   = sorted(os.path.basename(p) for p in pdf_files)
     pksim_basenames = sorted(os.path.basename(p) for p in pksim_files)
+
+    # Determine category by analyzing the evaluation report
+    category = categorize_compound(folder_path, md_files)
 
     # Write index.md from the evaluation report
     dest_md = os.path.join(dest, "index.md")
@@ -196,6 +239,7 @@ description: PBPK model evaluation for {folder_name}
         "name":        folder_name,
         "pdf_files":   pdf_basenames,
         "pksim_files": pksim_basenames,
+        "category":    category,
     }
 
 
@@ -238,29 +282,57 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
         "",
         "## Available PBPK Models and Qualification Reports",
         "",
-        "| Compound (HTML Report) | PDF Report | PK-Sim Project File(s) |",
-        "|------------------------|:----------:|:----------------------:|",
     ]
 
-    for ch in sorted(chapters_data, key=lambda x: x["name"].lower()):
-        name = ch["name"]
-        base = f"{name}/"
+    # Group compounds by category
+    from collections import defaultdict
+    categories = defaultdict(list)
+    for ch in chapters_data:
+        categories[ch["category"]].append(ch)
 
-        # Generate GitHub raw links for PDF files with alt text
-        pdf_cell = " ".join(
-            f'[:material-file-pdf-box:{{: .pdf-icon aria-label="Download {pdf} PDF report" title="Download {pdf} PDF report" }} {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
-            for pdf in ch["pdf_files"]
-        ) or "—"
+    # Sort categories for consistent ordering
+    category_order = [
+        "Antibiotics",
+        "Antivirals",
+        "Antifungals",
+        "Anesthetics & Analgesics",
+        "Sedatives & Anxiolytics",
+        "Anticonvulsants",
+        "Cardiovascular Agents",
+        "Antibodies & Biologics",
+        "Pediatric Models",
+        "Other Compounds",
+    ]
 
-        # Generate GitHub raw links for pksim5 files with alt text
-        pksim_cell = " ".join(
-            f'[:material-download:{{: .pksim-icon aria-label="Download {pksim} PK-Sim project file" title="Download {pksim} PK-Sim project file" }} {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
-            for pksim in ch["pksim_files"]
-        ) or "—"
+    for category in category_order:
+        if category not in categories:
+            continue
 
-        lines.append(f"| [{name}]({base}index.md) | {pdf_cell} | {pksim_cell} |")
+        # Add H3 heading for each category
+        lines.append(f"### {category}")
+        lines.append("")
+        lines.append("| Compound (HTML Report) | PDF Report | PK-Sim Project File(s) |")
+        lines.append("|------------------------|:----------:|:----------------------:|")
 
-    lines.append("")
+        for ch in sorted(categories[category], key=lambda x: x["name"].lower()):
+            name = ch["name"]
+            base = f"{name}/"
+
+            # Generate GitHub raw links for PDF files with alt text
+            pdf_cell = " ".join(
+                f'[:material-file-pdf-box:{{: .pdf-icon aria-label="Download {pdf} PDF report" title="Download {pdf} PDF report" }} {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
+                for pdf in ch["pdf_files"]
+            ) or "—"
+
+            # Generate GitHub raw links for pksim5 files with alt text
+            pksim_cell = " ".join(
+                f'[:material-download:{{: .pksim-icon aria-label="Download {pksim} PK-Sim project file" title="Download {pksim} PK-Sim project file" }} {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
+                for pksim in ch["pksim_files"]
+            ) or "—"
+
+            lines.append(f"| [{name}]({base}index.md) | {pdf_cell} | {pksim_cell} |")
+
+        lines.append("")
     lines.append("## Frequently Asked Questions (FAQ)")
     lines.append("")
     lines.append("### What is a PBPK model?")
@@ -325,6 +397,8 @@ site_author: Open Systems Pharmacology Community
 copyright: Copyright &copy; Open Systems Pharmacology Community
 docs_dir: docs
 site_dir: site
+
+use_directory_urls: true
 
 theme:
   name: material
