@@ -53,6 +53,7 @@ jobs:
             mkdocs-material \
             pymdown-extensions \
             mkdocs-meta-descriptions-plugin \
+            mkdocs-sitemap-plugin \
             pyyaml
 
       - name: Build docs structure

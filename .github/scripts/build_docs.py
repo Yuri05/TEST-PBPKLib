@@ -133,14 +133,90 @@ def is_compound_folder(path: str) -> bool:
             return True
     return False
 
+
+def categorize_compound(folder_path: str, md_files: list) -> str:
+    """Categorize a compound based on keywords in its evaluation report."""
+    # Default category
+    category = "Other Compounds"
+
+    # If no markdown files, return default
+    if not md_files:
+        return category
+
+    # Read first few hundred characters of the evaluation report
+    try:
+        with open(sorted(md_files)[0], "r", encoding="utf-8") as fh:
+            content = fh.read(4000).lower()
+
+        # Check for drug class keywords
+        if any(kw in content for kw in ["antibiotic", "aminoglycoside", "antimicrobial"]):
+            category = "Antibiotics"
+        elif any(kw in content for kw in ["antiviral", "hiv", "protease inhibitor", "antiretroviral"]):
+            category = "Antivirals"
+        elif any(kw in content for kw in ["opioid", "analgesic", "anesthesia", "alfentanil", "sufentanil", "fentanil"]):
+            category = "Anesthetics & Analgesics"
+        elif any(kw in content for kw in ["benzodiazepine", "anxiolytic", "sedative", "midazolam", "alprazolam", "triazolam"]):
+            category = "Sedatives & Anxiolytics"
+        elif any(kw in content for kw in ["anticonvulsant", "antiepileptic", "carbamazepine", "epilepsy"]):
+            category = "Anticonvulsants"
+        elif any(kw in content for kw in ["cardiovascular", "antiarrhythmic", "cardiac", "digoxin", "mexiletine", "felodipine", "verapamil"]):
+            category = "Cardiovascular Agents"
+        elif any(kw in content for kw in ["antifungal", "azole", "itraconazole", "fluconazole"]):
+            category = "Antifungals"
+        elif any(kw in content for kw in ["antibody", "monoclonal", "immunoglobulin", "mab"]):
+            category = "Antibodies & Biologics"
+        elif "pediatric" in content or "neonates" in content or "children" in content:
+            category = "Pediatric Models"
+
+    except Exception:
+        pass
+
+    return category
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Per-compound processing
 # ──────────────────────────────────────────────────────────────────────────────
 
-def process_folder(folder_path: str, folder_name: str) -> dict:
+def add_related_models_section(content: str, compound_name: str, category: str, all_compounds: list) -> str:
+    """Add a 'Related Models' section at the end of the compound page."""
+    # Find compounds in the same category (excluding the current one)
+    related = [c for c in all_compounds if c["category"] == category and c["name"] != compound_name]
+
+    if not related:
+        return content
+
+    # Limit to 5 related models
+    related = sorted(related, key=lambda x: x["name"])[:5]
+
+    # Build the related models section
+    section = [
+        "",
+        "---",
+        "",
+        "## Related Models",
+        "",
+        f"Explore other {category} models in this library:",
+        "",
+    ]
+
+    for model in related:
+        section.append(f"- [{model['name']}](../{model['name']}/index.md) - PBPK model and evaluation report")
+
+    section.extend([
+        "",
+        f"[View all {category} →](../index.md#{category.lower().replace(' ', '-').replace('&', '')})",
+        "",
+        "[← Back to Model Library Home](../index.md)",
+        "",
+    ])
+
+    return content + "\n".join(section)
+
+
+def process_folder(folder_path: str, folder_name: str, all_compounds: list = None) -> dict:
     """Copy and process one compound folder into docs/.
 
-    Returns a dict with keys: name, pdf_files, pksim_files.
+    Returns a dict with keys: name, pdf_files, pksim_files, category.
     """
     dest = os.path.join(DOCS_DIR, folder_name)
     os.makedirs(dest, exist_ok=True)
@@ -163,6 +239,9 @@ def process_folder(folder_path: str, folder_name: str) -> dict:
     pdf_basenames   = sorted(os.path.basename(p) for p in pdf_files)
     pksim_basenames = sorted(os.path.basename(p) for p in pksim_files)
 
+    # Determine category by analyzing the evaluation report
+    category = categorize_compound(folder_path, md_files)
+
     # Write index.md from the evaluation report
     dest_md = os.path.join(dest, "index.md")
     if md_files:
@@ -180,6 +259,10 @@ keywords: {folder_name}, PBPK model, physiologically based pharmacokinetic model
 """
             content = seo_frontmatter + content
 
+        # Add related models section if all_compounds is provided
+        if all_compounds:
+            content = add_related_models_section(content, folder_name, category, all_compounds)
+
         with open(dest_md, "w", encoding="utf-8") as fh:
             fh.write(content)
     else:
@@ -196,6 +279,7 @@ description: PBPK model evaluation for {folder_name}
         "name":        folder_name,
         "pdf_files":   pdf_basenames,
         "pksim_files": pksim_basenames,
+        "category":    category,
     }
 
 
@@ -207,43 +291,118 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
     """Generate docs/index.md listing all compounds with download links and SEO metadata."""
     lines = [
         "---",
-        "title: Open Systems Pharmacology PBPK Model Library - Physiologically Based Pharmacokinetic Models",
-        "description: Comprehensive library of validated PBPK (Physiologically Based Pharmacokinetic) models and qualification reports for drug development. Open-source whole-body PBPK modeling and simulation software for systems biology and multiscale physiological modeling.",
+        "title: PBPK Model Library | Validated PK-Sim & MoBi Models - Open Systems Pharmacology",
+        "description: Download validated PBPK models free. Comprehensive library of physiologically based pharmacokinetic models for drug development with PK-Sim & MoBi.",
         "keywords: PBPK, Physiologically based pharmacokinetic modelling, PBPK model, Qualification of PBPK Platform, Modeling and simulation software, PBPK Modeling and simulation software, Whole-body physiologically based pharmacokinetic modeling, Systems biology, Multiscale physiological modeling and simulation, PK-Sim, pharmacokinetics, drug development",
         "---",
         "",
         "# Open Systems Pharmacology PBPK Model Library",
         "",
-        "## Physiologically Based Pharmacokinetic (PBPK) and Quantitative Systems Pharmacology (QSP) Modeling Platform for Drug Development",
+        "## Physiologically Based Pharmacokinetic (PBPK) and Quantitative Systems Pharmacology (QSP) Modeling Platform",
         "",
         "This comprehensive library provides **validated PBPK (Physiologically Based Pharmacokinetic) models** and detailed model evaluation reports from the"
         " [Open Systems Pharmacology](https://www.open-systems-pharmacology.org/) project. Our PBPK and QSP modeling and simulation software (including PK-Sim® and MoBi®) enables "
         "**whole-body physiologically based pharmacokinetic modeling** for pharmaceutical research, drug development, and systems biology applications.",
         "",
+        "### How to Use These Models",
+        "",
+        "Each PBPK model in this library includes:",
+        "",
+        "- **HTML Report**: Comprehensive evaluation report with pharmacokinetic modeling details, validation data, and simulation results",
+        "- **PDF Report**: Downloadable qualification report for offline reference and regulatory submissions",
+        "- **PK-Sim Project Files** (`.pksim5`): Ready-to-use model files that can be opened directly in [PK-Sim®](https://www.open-systems-pharmacology.org/)",
+        "",
+        "These models are built using the Open Systems Pharmacology Suite and are suitable for:",
+        "",
+        "- Drug-drug interaction (DDI) predictions",
+        "- Dose optimization and scaling across populations",
+        "- Pediatric and special population modeling",
+        "- Regulatory submissions and scientific publications",
+        "- Academic research and education in pharmacometrics",
+        "",
         "## Available PBPK Models and Qualification Reports",
         "",
-        "| Compound (HTML Report) | PDF Report | PK-Sim Project File(s) |",
-        "|------------------------|:----------:|:----------------------:|",
     ]
 
-    for ch in sorted(chapters_data, key=lambda x: x["name"].lower()):
-        name = ch["name"]
-        base = f"{name}/"
+    # Group compounds by category
+    from collections import defaultdict
+    categories = defaultdict(list)
+    for ch in chapters_data:
+        categories[ch["category"]].append(ch)
 
-        # Generate GitHub raw links for PDF files
-        pdf_cell = " ".join(
-            f'[:material-file-pdf-box: {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
-            for pdf in ch["pdf_files"]
-        ) or "—"
+    # Sort categories for consistent ordering
+    category_order = [
+        "Antibiotics",
+        "Antivirals",
+        "Antifungals",
+        "Anesthetics & Analgesics",
+        "Sedatives & Anxiolytics",
+        "Anticonvulsants",
+        "Cardiovascular Agents",
+        "Antibodies & Biologics",
+        "Pediatric Models",
+        "Other Compounds",
+    ]
 
-        # Generate GitHub raw links for pksim5 files
-        pksim_cell = " ".join(
-            f'[:material-download: {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
-            for pksim in ch["pksim_files"]
-        ) or "—"
+    for category in category_order:
+        if category not in categories:
+            continue
 
-        lines.append(f"| [{name}]({base}index.md) | {pdf_cell} | {pksim_cell} |")
+        # Add H3 heading for each category
+        lines.append(f"### {category}")
+        lines.append("")
+        lines.append("| Compound (HTML Report) | PDF Report | PK-Sim Project File(s) |")
+        lines.append("|------------------------|:----------:|:----------------------:|")
 
+        for ch in sorted(categories[category], key=lambda x: x["name"].lower()):
+            name = ch["name"]
+            base = f"{name}/"
+
+            # Generate GitHub raw links for PDF files with alt text
+            pdf_cell = " ".join(
+                f'[:material-file-pdf-box:{{: .pdf-icon aria-label="Download {pdf} PDF report" title="Download {pdf} PDF report" }} {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
+                for pdf in ch["pdf_files"]
+            ) or "—"
+
+            # Generate GitHub raw links for pksim5 files with alt text
+            pksim_cell = " ".join(
+                f'[:material-download:{{: .pksim-icon aria-label="Download {pksim} PK-Sim project file" title="Download {pksim} PK-Sim project file" }} {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
+                for pksim in ch["pksim_files"]
+            ) or "—"
+
+            lines.append(f"| [{name}]({base}index.md) | {pdf_cell} | {pksim_cell} |")
+
+        lines.append("")
+    lines.append("## Frequently Asked Questions (FAQ)")
+    lines.append("")
+    lines.append("### What is a PBPK model?")
+    lines.append("")
+    lines.append("A **Physiologically Based Pharmacokinetic (PBPK) model** is a mathematical model that predicts the absorption, distribution, metabolism, and excretion (ADME) of drugs in the body. PBPK models incorporate anatomical, physiological, and biochemical information to simulate drug concentration-time profiles in various tissues and organs.")
+    lines.append("")
+    lines.append("### How do I open a .pksim5 file?")
+    lines.append("")
+    lines.append("`.pksim5` files are PK-Sim project files that can be opened with the **PK-Sim®** software, part of the Open Systems Pharmacology Suite. Download PK-Sim for free from [www.open-systems-pharmacology.org](https://www.open-systems-pharmacology.org/). After installation, simply double-click the `.pksim5` file or open it from within PK-Sim.")
+    lines.append("")
+    lines.append("### Are these models validated?")
+    lines.append("")
+    lines.append("Yes, all models in this library have undergone comprehensive qualification and validation. Each model includes detailed evaluation reports documenting the validation against clinical pharmacokinetic data, including goodness-of-fit assessments and predictive performance metrics.")
+    lines.append("")
+    lines.append("### Can I use these models for regulatory submissions?")
+    lines.append("")
+    lines.append("Yes, these PBPK models are developed following regulatory guidelines and best practices. The detailed qualification reports provided with each model are suitable for inclusion in regulatory submissions to agencies such as the FDA and EMA. However, you should ensure the model is appropriate for your specific use case.")
+    lines.append("")
+    lines.append("### How can I cite these models?")
+    lines.append("")
+    lines.append("Each model page includes specific citation information in the evaluation report. In general, please cite the Open Systems Pharmacology project and the specific model qualification report. Additional details can be found on the [Open Systems Pharmacology website](https://www.open-systems-pharmacology.org/).")
+    lines.append("")
+    lines.append("### What software do I need?")
+    lines.append("")
+    lines.append("To use these models, you'll need the **Open Systems Pharmacology Suite**, which includes:")
+    lines.append("")
+    lines.append("- **PK-Sim®**: For PBPK modeling and simulation")
+    lines.append("- **MoBi®**: For more advanced mechanistic modeling (optional)")
+    lines.append("")
+    lines.append("Both tools are free and open-source, available at [www.open-systems-pharmacology.org](https://www.open-systems-pharmacology.org/).")
     lines.append("")
 
     with open(os.path.join(docs_dir, "index.md"), "w", encoding="utf-8") as fh:
@@ -279,6 +438,8 @@ copyright: Copyright &copy; Open Systems Pharmacology Community
 docs_dir: docs
 site_dir: site
 
+use_directory_urls: true
+
 theme:
   name: material
   language: en
@@ -302,6 +463,7 @@ theme:
     - navigation.top
     - navigation.tabs.sticky
     - navigation.indexes
+    - navigation.path
     - toc.follow
     - search.highlight
     - search.suggest
@@ -436,6 +598,51 @@ Sitemap: https://open-systems-pharmacology.github.io/OSP-PBPK-Model-Library/site
   }
   </script>
 
+  <!-- Dataset Schema for PBPK Model Library -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "Open Systems Pharmacology PBPK Model Library",
+    "description": "Comprehensive library of validated PBPK (Physiologically Based Pharmacokinetic) models for drug development and pharmaceutical research",
+    "url": {{ config.site_url | tojson }},
+    "keywords": ["PBPK", "pharmacokinetic modeling", "drug development", "PK-Sim", "MoBi", "systems pharmacology", "ADME"],
+    "license": "https://github.com/Open-Systems-Pharmacology/OSP-PBPK-Model-Library#license",
+    "creator": {
+      "@type": "Organization",
+      "name": "Open Systems Pharmacology",
+      "url": "https://www.open-systems-pharmacology.org/"
+    },
+    "distribution": {
+      "@type": "DataDownload",
+      "encodingFormat": "application/zip",
+      "contentUrl": "https://github.com/Open-Systems-Pharmacology/OSP-PBPK-Model-Library"
+    }
+  }
+  </script>
+
+  <!-- SoftwareApplication Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PK-Sim PBPK Models",
+    "applicationCategory": "ScientificApplication",
+    "operatingSystem": "Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Validated PBPK models for use with PK-Sim and MoBi software for pharmaceutical research and drug development",
+    "url": {{ config.site_url | tojson }},
+    "publisher": {
+      "@type": "Organization",
+      "name": "Open Systems Pharmacology"
+    }
+  }
+  </script>
+
   {% if page and page.meta and page.meta.title %}
   <script type="application/ld+json">
   {
@@ -516,8 +723,9 @@ def main():
     # Write extra CSS
     generate_assets(DOCS_DIR)
 
-    # Process each compound folder
+    # First pass: collect all compound metadata (for categorization)
     chapters_data = []
+    compound_folders = []
     for entry in sorted(os.listdir(REPO_ROOT)):
         if entry.startswith(EXCLUDE_PREFIXES):
             continue
@@ -526,7 +734,13 @@ def main():
             continue
         if not is_compound_folder(full_path):
             continue
-        chapters_data.append(process_folder(full_path, entry))
+        compound_folders.append((full_path, entry))
+        # First pass: just collect metadata without writing files
+        chapters_data.append(process_folder(full_path, entry, all_compounds=None))
+
+    # Second pass: re-process folders with cross-linking
+    for full_path, entry in compound_folders:
+        process_folder(full_path, entry, all_compounds=chapters_data)
 
     # Generate home page listing all reports
     generate_index_md(chapters_data, DOCS_DIR, args.repository_name, args.tag_or_branch)
