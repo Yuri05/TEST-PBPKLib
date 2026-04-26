@@ -207,18 +207,34 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
     """Generate docs/index.md listing all compounds with download links and SEO metadata."""
     lines = [
         "---",
-        "title: Open Systems Pharmacology PBPK Model Library - Physiologically Based Pharmacokinetic Models",
-        "description: Comprehensive library of validated PBPK (Physiologically Based Pharmacokinetic) models and qualification reports for drug development. Open-source whole-body PBPK modeling and simulation software for systems biology and multiscale physiological modeling.",
+        "title: PBPK Model Library | Validated PK-Sim & MoBi Models - Open Systems Pharmacology",
+        "description: Download validated PBPK models free. Comprehensive library of physiologically based pharmacokinetic models for drug development with PK-Sim & MoBi.",
         "keywords: PBPK, Physiologically based pharmacokinetic modelling, PBPK model, Qualification of PBPK Platform, Modeling and simulation software, PBPK Modeling and simulation software, Whole-body physiologically based pharmacokinetic modeling, Systems biology, Multiscale physiological modeling and simulation, PK-Sim, pharmacokinetics, drug development",
         "---",
         "",
         "# Open Systems Pharmacology PBPK Model Library",
         "",
-        "## Physiologically Based Pharmacokinetic (PBPK) and Quantitative Systems Pharmacology (QSP) Modeling Platform for Drug Development",
+        "## Physiologically Based Pharmacokinetic (PBPK) and Quantitative Systems Pharmacology (QSP) Modeling Platform",
         "",
         "This comprehensive library provides **validated PBPK (Physiologically Based Pharmacokinetic) models** and detailed model evaluation reports from the"
         " [Open Systems Pharmacology](https://www.open-systems-pharmacology.org/) project. Our PBPK and QSP modeling and simulation software (including PK-Sim® and MoBi®) enables "
         "**whole-body physiologically based pharmacokinetic modeling** for pharmaceutical research, drug development, and systems biology applications.",
+        "",
+        "### How to Use These Models",
+        "",
+        "Each PBPK model in this library includes:",
+        "",
+        "- **HTML Report**: Comprehensive evaluation report with pharmacokinetic modeling details, validation data, and simulation results",
+        "- **PDF Report**: Downloadable qualification report for offline reference and regulatory submissions",
+        "- **PK-Sim Project Files** (`.pksim5`): Ready-to-use model files that can be opened directly in [PK-Sim®](https://www.open-systems-pharmacology.org/)",
+        "",
+        "These models are built using the Open Systems Pharmacology Suite and are suitable for:",
+        "",
+        "- Drug-drug interaction (DDI) predictions",
+        "- Dose optimization and scaling across populations",
+        "- Pediatric and special population modeling",
+        "- Regulatory submissions and scientific publications",
+        "- Academic research and education in pharmacometrics",
         "",
         "## Available PBPK Models and Qualification Reports",
         "",
@@ -230,20 +246,51 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
         name = ch["name"]
         base = f"{name}/"
 
-        # Generate GitHub raw links for PDF files
+        # Generate GitHub raw links for PDF files with alt text
         pdf_cell = " ".join(
-            f'[:material-file-pdf-box: {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
+            f'[:material-file-pdf-box:{{: .pdf-icon aria-label="Download {pdf} PDF report" title="Download {pdf} PDF report" }} {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
             for pdf in ch["pdf_files"]
         ) or "—"
 
-        # Generate GitHub raw links for pksim5 files
+        # Generate GitHub raw links for pksim5 files with alt text
         pksim_cell = " ".join(
-            f'[:material-download: {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
+            f'[:material-download:{{: .pksim-icon aria-label="Download {pksim} PK-Sim project file" title="Download {pksim} PK-Sim project file" }} {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
             for pksim in ch["pksim_files"]
         ) or "—"
 
         lines.append(f"| [{name}]({base}index.md) | {pdf_cell} | {pksim_cell} |")
 
+    lines.append("")
+    lines.append("## Frequently Asked Questions (FAQ)")
+    lines.append("")
+    lines.append("### What is a PBPK model?")
+    lines.append("")
+    lines.append("A **Physiologically Based Pharmacokinetic (PBPK) model** is a mathematical model that predicts the absorption, distribution, metabolism, and excretion (ADME) of drugs in the body. PBPK models incorporate anatomical, physiological, and biochemical information to simulate drug concentration-time profiles in various tissues and organs.")
+    lines.append("")
+    lines.append("### How do I open a .pksim5 file?")
+    lines.append("")
+    lines.append("`.pksim5` files are PK-Sim project files that can be opened with the **PK-Sim®** software, part of the Open Systems Pharmacology Suite. Download PK-Sim for free from [www.open-systems-pharmacology.org](https://www.open-systems-pharmacology.org/). After installation, simply double-click the `.pksim5` file or open it from within PK-Sim.")
+    lines.append("")
+    lines.append("### Are these models validated?")
+    lines.append("")
+    lines.append("Yes, all models in this library have undergone comprehensive qualification and validation. Each model includes detailed evaluation reports documenting the validation against clinical pharmacokinetic data, including goodness-of-fit assessments and predictive performance metrics.")
+    lines.append("")
+    lines.append("### Can I use these models for regulatory submissions?")
+    lines.append("")
+    lines.append("Yes, these PBPK models are developed following regulatory guidelines and best practices. The detailed qualification reports provided with each model are suitable for inclusion in regulatory submissions to agencies such as the FDA and EMA. However, you should ensure the model is appropriate for your specific use case.")
+    lines.append("")
+    lines.append("### How can I cite these models?")
+    lines.append("")
+    lines.append("Each model page includes specific citation information in the evaluation report. In general, please cite the Open Systems Pharmacology project and the specific model qualification report. Additional details can be found on the [Open Systems Pharmacology website](https://www.open-systems-pharmacology.org/).")
+    lines.append("")
+    lines.append("### What software do I need?")
+    lines.append("")
+    lines.append("To use these models, you'll need the **Open Systems Pharmacology Suite**, which includes:")
+    lines.append("")
+    lines.append("- **PK-Sim®**: For PBPK modeling and simulation")
+    lines.append("- **MoBi®**: For more advanced mechanistic modeling (optional)")
+    lines.append("")
+    lines.append("Both tools are free and open-source, available at [www.open-systems-pharmacology.org](https://www.open-systems-pharmacology.org/).")
     lines.append("")
 
     with open(os.path.join(docs_dir, "index.md"), "w", encoding="utf-8") as fh:
@@ -302,6 +349,7 @@ theme:
     - navigation.top
     - navigation.tabs.sticky
     - navigation.indexes
+    - navigation.path
     - toc.follow
     - search.highlight
     - search.suggest
@@ -432,6 +480,51 @@ Sitemap: https://open-systems-pharmacology.github.io/OSP-PBPK-Model-Library/site
       "@type": "SearchAction",
       "target": {{ (config.site_url ~ '?q={search_term_string}') | tojson }},
       "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+
+  <!-- Dataset Schema for PBPK Model Library -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "Open Systems Pharmacology PBPK Model Library",
+    "description": "Comprehensive library of validated PBPK (Physiologically Based Pharmacokinetic) models for drug development and pharmaceutical research",
+    "url": {{ config.site_url | tojson }},
+    "keywords": ["PBPK", "pharmacokinetic modeling", "drug development", "PK-Sim", "MoBi", "systems pharmacology", "ADME"],
+    "license": "https://github.com/Open-Systems-Pharmacology/OSP-PBPK-Model-Library#license",
+    "creator": {
+      "@type": "Organization",
+      "name": "Open Systems Pharmacology",
+      "url": "https://www.open-systems-pharmacology.org/"
+    },
+    "distribution": {
+      "@type": "DataDownload",
+      "encodingFormat": "application/zip",
+      "contentUrl": "https://github.com/Open-Systems-Pharmacology/OSP-PBPK-Model-Library"
+    }
+  }
+  </script>
+
+  <!-- SoftwareApplication Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PK-Sim PBPK Models",
+    "applicationCategory": "ScientificApplication",
+    "operatingSystem": "Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Validated PBPK models for use with PK-Sim and MoBi software for pharmaceutical research and drug development",
+    "url": {{ config.site_url | tojson }},
+    "publisher": {
+      "@type": "Organization",
+      "name": "Open Systems Pharmacology"
     }
   }
   </script>
