@@ -252,7 +252,7 @@ def process_folder(folder_path: str, folder_name: str, all_compounds: list = Non
         if not content.startswith("---"):
             seo_frontmatter = f"""---
 title: {folder_name} PBPK Model - Physiologically Based Pharmacokinetic Evaluation Report
-description: PBPK (Physiologically Based Pharmacokinetic) model qualification and evaluation report for {folder_name}. Detailed pharmacokinetic modeling and simulation results using Open Systems Pharmacology platform.
+description: PBPK (Physiologically Based Pharmacokinetic) model evaluation report for {folder_name}. Detailed pharmacokinetic modeling and simulation results using Open Systems Pharmacology platform.
 keywords: {folder_name}, PBPK model, physiologically based pharmacokinetic model, {folder_name} pharmacokinetics, drug modeling, PK-Sim
 ---
 
@@ -309,7 +309,7 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
         "Each PBPK model in this library includes:",
         "",
         "- **HTML Report**: Comprehensive evaluation report with pharmacokinetic modeling details, validation data, and simulation results",
-        "- **PDF Report**: Downloadable qualification report for offline reference and regulatory submissions",
+        "- **PDF Report**: Downloadable model evaluation report for offline reference and regulatory submissions",
         "- **PK-Sim Project Files** (`.pksim5`): Ready-to-use model files that can be opened directly in [PK-Sim®](https://www.open-systems-pharmacology.org/)",
         "",
         "These models are built using the Open Systems Pharmacology Suite and are suitable for:",
@@ -320,7 +320,7 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
         "- Regulatory submissions and scientific publications",
         "- Academic research and education in pharmacometrics",
         "",
-        "## Available PBPK Models and Qualification Reports",
+        "## Available PBPK Models and Evaluation Reports",
         "",
     ]
 
@@ -389,11 +389,11 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
     lines.append("")
     lines.append("### Can I use these models for regulatory submissions?")
     lines.append("")
-    lines.append("Yes, these PBPK models are developed following regulatory guidelines and best practices. The detailed qualification reports provided with each model are suitable for inclusion in regulatory submissions to agencies such as the FDA and EMA. However, you should ensure the model is appropriate for your specific use case.")
+    lines.append("Yes, these PBPK models are developed following regulatory guidelines and best practices. The detailed evaluation reports provided with each model are suitable for inclusion in regulatory submissions to agencies such as the FDA and EMA. However, you should ensure the model is appropriate for your specific use case.")
     lines.append("")
     lines.append("### How can I cite these models?")
     lines.append("")
-    lines.append("Each model page includes specific citation information in the evaluation report. In general, please cite the Open Systems Pharmacology project and the specific model qualification report. Additional details can be found on the [Open Systems Pharmacology website](https://www.open-systems-pharmacology.org/).")
+    lines.append("Each model page includes specific citation information in the evaluation report. In general, please cite the Open Systems Pharmacology project and the specific model evaluation report. Additional details can be found on the [Open Systems Pharmacology website](https://www.open-systems-pharmacology.org/).")
     lines.append("")
     lines.append("### What software do I need?")
     lines.append("")
