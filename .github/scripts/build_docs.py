@@ -146,7 +146,7 @@ def categorize_compound(folder_path: str, md_files: list) -> str:
     # Read first few hundred characters of the evaluation report
     try:
         with open(sorted(md_files)[0], "r", encoding="utf-8") as fh:
-            content = fh.read(2000).lower()
+            content = fh.read(4000).lower()
 
         # Check for drug class keywords
         if any(kw in content for kw in ["antibiotic", "aminoglycoside", "antimicrobial"]):
