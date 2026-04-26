@@ -177,7 +177,43 @@ def categorize_compound(folder_path: str, md_files: list) -> str:
 # Per-compound processing
 # ──────────────────────────────────────────────────────────────────────────────
 
-def process_folder(folder_path: str, folder_name: str) -> dict:
+def add_related_models_section(content: str, compound_name: str, category: str, all_compounds: list) -> str:
+    """Add a 'Related Models' section at the end of the compound page."""
+    # Find compounds in the same category (excluding the current one)
+    related = [c for c in all_compounds if c["category"] == category and c["name"] != compound_name]
+
+    if not related:
+        return content
+
+    # Limit to 5 related models
+    related = sorted(related, key=lambda x: x["name"])[:5]
+
+    # Build the related models section
+    section = [
+        "",
+        "---",
+        "",
+        "## Related Models",
+        "",
+        f"Explore other {category} models in this library:",
+        "",
+    ]
+
+    for model in related:
+        section.append(f"- [{model['name']}](../{model['name']}/index.md) - PBPK model and evaluation report")
+
+    section.extend([
+        "",
+        f"[View all {category} →](../index.md#{category.lower().replace(' ', '-').replace('&', '')})",
+        "",
+        "[← Back to Model Library Home](../index.md)",
+        "",
+    ])
+
+    return content + "\n".join(section)
+
+
+def process_folder(folder_path: str, folder_name: str, all_compounds: list = None) -> dict:
     """Copy and process one compound folder into docs/.
 
     Returns a dict with keys: name, pdf_files, pksim_files, category.
@@ -222,6 +258,10 @@ keywords: {folder_name}, PBPK model, physiologically based pharmacokinetic model
 
 """
             content = seo_frontmatter + content
+
+        # Add related models section if all_compounds is provided
+        if all_compounds:
+            content = add_related_models_section(content, folder_name, category, all_compounds)
 
         with open(dest_md, "w", encoding="utf-8") as fh:
             fh.write(content)
@@ -683,8 +723,9 @@ def main():
     # Write extra CSS
     generate_assets(DOCS_DIR)
 
-    # Process each compound folder
+    # First pass: collect all compound metadata (for categorization)
     chapters_data = []
+    compound_folders = []
     for entry in sorted(os.listdir(REPO_ROOT)):
         if entry.startswith(EXCLUDE_PREFIXES):
             continue
@@ -693,7 +734,13 @@ def main():
             continue
         if not is_compound_folder(full_path):
             continue
-        chapters_data.append(process_folder(full_path, entry))
+        compound_folders.append((full_path, entry))
+        # First pass: just collect metadata without writing files
+        chapters_data.append(process_folder(full_path, entry, all_compounds=None))
+
+    # Second pass: re-process folders with cross-linking
+    for full_path, entry in compound_folders:
+        process_folder(full_path, entry, all_compounds=chapters_data)
 
     # Generate home page listing all reports
     generate_index_md(chapters_data, DOCS_DIR, args.repository_name, args.tag_or_branch)
