@@ -18,6 +18,8 @@ import os
 import shutil
 import glob
 import yaml
+import re
+from urllib.parse import quote
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DOCS_DIR = os.path.join(REPO_ROOT, "docs")
@@ -25,6 +27,21 @@ MKDOCS_YML = os.path.join(REPO_ROOT, "mkdocs.yml")
 
 # Folders to exclude (hidden directories and non-compound folders)
 EXCLUDE_PREFIXES = (".", "_")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+def slugify(text: str) -> str:
+    """Convert text to a URL-friendly slug matching python-markdown's TOC behavior.
+
+    Lowercases, replaces sequences of non-alphanumeric chars with a single hyphen,
+    and trims leading/trailing hyphens.
+    """
+    slug = text.lower()
+    slug = re.sub(r'[^a-z0-9]+', '-', slug)
+    slug = slug.strip('-')
+    return slug
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Extra CSS – injected into docs/stylesheets/extra.css
@@ -122,10 +139,6 @@ EXTRA_CSS = """\
 """
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────────────────────────────────────
-
 def is_compound_folder(path: str) -> bool:
     """Return True if the folder contains a markdown evaluation report."""
     for f in os.listdir(path):
@@ -204,7 +217,7 @@ def add_related_models_section(content: str, compound_name: str, category: str, 
 
     section.extend([
         "",
-        f"[View all {category} →](../index.md#{category.lower().replace(' ', '-').replace('&', '')})",
+        f"[View all {category} →](../index.md#{slugify(category)})",
         "",
         "[← Back to Model Library Home](../index.md)",
         "",
@@ -213,7 +226,32 @@ def add_related_models_section(content: str, compound_name: str, category: str, 
     return content + "\n".join(section)
 
 
-def process_folder(folder_path: str, folder_name: str, all_compounds: list = None) -> dict:
+def collect_folder_metadata(folder_path: str, folder_name: str) -> dict:
+    """Collect metadata from a compound folder without writing files.
+
+    Returns a dict with keys: name, pdf_files, pksim_files, category.
+    """
+    # Collect assets
+    md_files   = glob.glob(os.path.join(folder_path, "*_evaluation_report.md"))
+    pdf_files  = glob.glob(os.path.join(folder_path, "*.pdf"))
+    pksim_files = glob.glob(os.path.join(folder_path, "*.pksim5"))
+
+    # Collect basenames
+    pdf_basenames   = sorted(os.path.basename(p) for p in pdf_files)
+    pksim_basenames = sorted(os.path.basename(p) for p in pksim_files)
+
+    # Determine category by analyzing the evaluation report
+    category = categorize_compound(folder_path, md_files)
+
+    return {
+        "name":        folder_name,
+        "pdf_files":   pdf_basenames,
+        "pksim_files": pksim_basenames,
+        "category":    category,
+    }
+
+
+def process_folder(folder_path: str, folder_name: str, all_compounds: list) -> dict:
     """Copy and process one compound folder into docs/.
 
     Returns a dict with keys: name, pdf_files, pksim_files, category.
@@ -259,9 +297,8 @@ keywords: {folder_name}, PBPK model, physiologically based pharmacokinetic model
 """
             content = seo_frontmatter + content
 
-        # Add related models section if all_compounds is provided
-        if all_compounds:
-            content = add_related_models_section(content, folder_name, category, all_compounds)
+        # Add related models section
+        content = add_related_models_section(content, folder_name, category, all_compounds)
 
         with open(dest_md, "w", encoding="utf-8") as fh:
             fh.write(content)
@@ -360,13 +397,13 @@ def generate_index_md(chapters_data: list, docs_dir: str, repository_name: str, 
 
             # Generate GitHub raw links for PDF files with alt text
             pdf_cell = " ".join(
-                f'[:material-file-pdf-box:{{: .pdf-icon aria-label="Download {pdf} PDF report" title="Download {pdf} PDF report" }} {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pdf}){{: download="{pdf}" }}'
+                f'[:material-file-pdf-box:{{: .pdf-icon aria-label="Download {pdf} PDF report" title="Download {pdf} PDF report" }} {pdf}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{quote(name, safe="")}/{quote(pdf, safe="")}){{: download="{pdf}" }}'
                 for pdf in ch["pdf_files"]
             ) or "—"
 
             # Generate GitHub raw links for pksim5 files with alt text
             pksim_cell = " ".join(
-                f'[:material-download:{{: .pksim-icon aria-label="Download {pksim} PK-Sim project file" title="Download {pksim} PK-Sim project file" }} {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{name}/{pksim}){{: download="{pksim}" }}'
+                f'[:material-download:{{: .pksim-icon aria-label="Download {pksim} PK-Sim project file" title="Download {pksim} PK-Sim project file" }} {pksim}](https://raw.githubusercontent.com/{repository_name}/{tag_or_branch}/{quote(name, safe="")}/{quote(pksim, safe="")}){{: download="{pksim}" }}'
                 for pksim in ch["pksim_files"]
             ) or "—"
 
@@ -428,7 +465,9 @@ def generate_mkdocs_yml(nav: list, release_title: str = "") -> None:
 
     site_name = "OSP PBPK Model Library"
     if release_title:
-        site_name += f" ({release_title})"
+        # Escape problematic characters for YAML double-quoted scalar
+        escaped_title = release_title.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+        site_name += f" ({escaped_title})"
 
     content = f"""site_name: "{site_name}"
 site_description: "Comprehensive library of validated PBPK (Physiologically Based Pharmacokinetic) models and qualification reports for drug development. Open-source whole-body PBPK modeling and simulation software for systems biology and multiscale physiological modeling."
@@ -735,10 +774,10 @@ def main():
         if not is_compound_folder(full_path):
             continue
         compound_folders.append((full_path, entry))
-        # First pass: just collect metadata without writing files
-        chapters_data.append(process_folder(full_path, entry, all_compounds=None))
+        # First pass: collect metadata without writing files
+        chapters_data.append(collect_folder_metadata(full_path, entry))
 
-    # Second pass: re-process folders with cross-linking
+    # Second pass: process folders with cross-linking and write files
     for full_path, entry in compound_folders:
         process_folder(full_path, entry, all_compounds=chapters_data)
 
